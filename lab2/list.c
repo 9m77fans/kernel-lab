@@ -363,9 +363,53 @@ static void *delete_thread(void *arg)
     return NULL;
 }
 
+static bool list_find_debug(list_t *list,list_key_t key)
+{
+    list_node_t *curr, *next;
+    atomic_uintptr_t *prev;
+    if (__list_find(list, &key, &prev, &curr, &next)) {
+        return true;
+    }else {
+        return false;
+    }
+}
+
+static bool list_travel_debug(list_t *list)
+{
+    atomic_uintptr_t *prev = NULL;
+    list_node_t *curr = NULL, *next = NULL;
+    prev = &list->head;
+    curr = (list_node_t *) atomic_load(prev);
+    do{
+
+        printf("dump = 0x%" PRIx64 ",addr = %p\n",curr->key,&(curr->key));
+        next = (list_node_t *) atomic_load(&get_unmarked_node(curr)->next);
+        curr = next;
+    }while(curr->key != UINTPTR_MAX);
+    printf("dump = 0x%" PRIx64 ",addr = %p\n",curr->key,&(curr->key));
+    return true;
+}
+
 int main(void)
 {
     list_t *list = list_new();
+    printf("test insert\n");
+    (void) list_insert(list, (uintptr_t) &elements[tid()][0]);
+    (void) list_insert(list, (uintptr_t) &elements[tid()][0]);
+    (void) list_insert(list, (uintptr_t) &elements[tid()][0]);
+    list_travel_debug(list);
+    printf("test find\n");
+    if(list_find_debug(list, (uintptr_t) &elements[tid()][0]))
+    {
+        printf("found element\n");
+    }else{
+        printf("not found element\n");
+    }
+    printf("test delete\n");
+    (void) list_delete(list, (uintptr_t) &elements[tid()][0]);
+    (void) list_delete(list, (uintptr_t) &elements[tid()][0]);
+    (void) list_delete(list, (uintptr_t) &elements[tid()][0]);
+    list_travel_debug(list);
 
     pthread_t thr[N_THREADS];
 
