@@ -225,12 +225,12 @@ static bool __list_find(list_t *list,
 
 try_again:
     prev = &list->head;
-    curr = (list_node_t *) atomic_load(prev);
+    curr = (list_node_t *) atomic_load_explicit(prev,memory_order_relaxed);
     (void) list_hp_protect_ptr(list->hp, HP_CURR, (uintptr_t) curr);
-    if (atomic_load(prev) != get_unmarked(curr))
+    if (atomic_load_explicit(prev,memory_order_relaxed) != get_unmarked(curr))
         goto try_again;
     while (true) {
-        next = (list_node_t *) atomic_load(&get_unmarked_node(curr)->next);
+        next = (list_node_t *) atomic_load_explicit(&get_unmarked_node(curr)->next,memory_order_relaxed);
         (void) list_hp_protect_ptr(list->hp, HP_NEXT, get_unmarked(next));
         /* On a CAS failure, the search function, "__list_find," will simply
          * have to go backwards in the list until an unmarked element is found
@@ -331,12 +331,12 @@ list_t *list_new(void)
 void list_destroy(list_t *list)
 {
     assert(list);
-    list_node_t *prev = (list_node_t *) atomic_load(&list->head);
-    list_node_t *node = (list_node_t *) atomic_load(&prev->next);
+    list_node_t *prev = (list_node_t *) atomic_load_explicit(&list->head,memory_order_relaxed);
+    list_node_t *node = (list_node_t *) atomic_load_explicit(&prev->next,memory_order_relaxed);
     while (node) {
         list_node_destroy(prev);
         prev = node;
-        node = (list_node_t *) atomic_load(&prev->next);
+        node = (list_node_t *) atomic_load_explicit(&prev->next,memory_order_relaxed);
     }
     list_node_destroy(prev);
     list_hp_destroy(list->hp);
