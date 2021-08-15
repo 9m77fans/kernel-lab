@@ -66,7 +66,7 @@ list_hp_t *list_hp_new(size_t max_hps, list_hp_deletefunc_t *deletefunc)
     *hp = (list_hp_t){.max_hps = max_hps, .deletefunc = deletefunc};
 
     for (int i = 0; i < HP_MAX_THREADS; i++) {
-        hp->hp[i] = calloc(CLPAD * 2, sizeof(hp->hp[i][0]));
+        hp->hp[i] = calloc(max_hps, sizeof(hp->hp[i][0]));
         hp->rl[i * CLPAD] = calloc(1, sizeof(*hp->rl[0]));
         for (int j = 0; j < hp->max_hps; j++)
             atomic_init(&hp->hp[i][j], 0);
@@ -164,7 +164,7 @@ void list_hp_retire(list_hp_t *hp, uintptr_t ptr)
 
 static atomic_uint_fast32_t deletes = 0, inserts = 0;
 
-enum { HP_NEXT = 0, HP_CURR = 1, HP_PREV };
+enum { HP_NEXT = 0, HP_CURR = 1, HP_PREV = 2,HP_SIZE};
 
 #define is_marked(p) (bool) ((uintptr_t)(p) &0x01)
 #define get_marked(p) ((uintptr_t)(p) | (0x01))
@@ -188,7 +188,7 @@ typedef struct list {
     list_hp_t *hp;
 } list_t;
 
-#define LIST_MAGIC (0xDEADBEAF)
+#define LIST_MAGIC (0xDEADBEEF)
 
 list_node_t *list_node_new(list_key_t key)
 {
@@ -317,9 +317,10 @@ list_t *list_new(void)
     assert(list);
     list_node_t *head = list_node_new(0), *tail = list_node_new(UINTPTR_MAX);
     assert(head), assert(tail);
-    list_hp_t *hp = list_hp_new(3, __list_node_delete);
+    list_hp_t *hp = list_hp_new(HP_SIZE, __list_node_delete);
 
     atomic_init(&head->next, (uintptr_t) tail);
+    atomic_init(&tail->next, (uintptr_t) NULL);
     *list = (list_t){.hp = hp};
     atomic_init(&list->head, (uintptr_t) head);
     atomic_init(&list->tail, (uintptr_t) tail);
